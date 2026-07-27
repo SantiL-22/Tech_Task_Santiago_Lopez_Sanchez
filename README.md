@@ -131,6 +131,11 @@ pytest   # 58 tests
 
 ## Deployment
 
+The live instance runs at `https://collections.santils.dev` on a VPS: the
+container binds to localhost only, nginx terminates TLS (Let's Encrypt,
+auto-renewed) and reverse-proxies to it, and `restart: unless-stopped` plus a
+Docker healthcheck keep it up without scale-to-zero.
+
 The service ships as a single container. Build and run:
 
 ```bash
