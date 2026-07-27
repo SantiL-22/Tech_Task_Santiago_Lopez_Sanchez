@@ -31,7 +31,7 @@ ladder:
   - id: paid_in_full
     min_total: 1000.00
     max_payments: 1
-    allowed_cadences: [monthly]
+    allowed_cadences: [weekly, biweekly, monthly]
 
   - id: downpayment_plus_one
     min_total: 1000.00
