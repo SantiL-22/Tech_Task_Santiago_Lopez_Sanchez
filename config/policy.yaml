@@ -1,0 +1,54 @@
+# Negotiation authority for this portfolio.
+# Kept out of the code so it can be tuned per client without a redeploy,
+# and so the limits are auditable in one place.
+
+balance: 1000.00
+currency: USD
+
+limits:
+  # No single installment may fall below this share of the agreed total.
+  min_payment_pct: 0.25
+
+  # Derived from the rule above: total/n >= 0.25*total implies n <= 4.
+  max_payments: 4
+
+  # Roughly three months.
+  max_span_days: 92
+
+  # The first payment must be close enough to be a real commitment.
+  max_days_to_first_payment: 7
+
+  allowed_cadences: [weekly, biweekly, monthly]
+
+  # Maximum settlement discount is 20%, so nothing below this is ever
+  # acceptable regardless of how the negotiation goes.
+  min_acceptable_total: 800.00
+
+# Concession ladder, in order of business preference.
+# Each rung is STRICTER than the global envelope above; the envelope is the
+# outer safety net, these are the negotiation authority at each step.
+ladder:
+  - id: paid_in_full
+    min_total: 1000.00
+    max_payments: 1
+    allowed_cadences: [monthly]
+
+  - id: downpayment_plus_one
+    min_total: 1000.00
+    max_payments: 2
+    # Maximize the downpayment: 25% floor makes 75/25 the most aggressive
+    # split available.
+    skew: [0.75, 0.25]
+    allowed_cadences: [weekly, biweekly, monthly]
+
+  - id: settlement
+    # Up to 20% off. Capped at 3 payments by the brief.
+    min_total: 800.00
+    max_payments: 3
+    allowed_cadences: [weekly, biweekly, monthly]
+
+  - id: payment_plan
+    # No discount whatsoever. The 25% floor caps this at 4 payments.
+    min_total: 1000.00
+    max_payments: 4
+    allowed_cadences: [weekly, biweekly, monthly]
