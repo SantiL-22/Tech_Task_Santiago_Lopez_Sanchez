@@ -123,6 +123,23 @@ def evaluate(
                 spoken_summary=f"Agreed: {_describe(schedule)}.",
             )
             state.best_offer_total = max(state.best_offer_total, offer.total)
+            # Record what was approved. finalize_agreement reads from here and
+            # never from tool arguments, so the model cannot persist terms the
+            # engine did not authorise.
+            state.accepted = {
+                "tier_id": tier.id,
+                "total": str(offer.total),
+                "num_payments": offer.num_payments,
+                "cadence": offer.cadence,
+                "schedule": [
+                    {
+                        "seq": i.seq,
+                        "amount": str(i.amount),
+                        "due_date": i.due_date.isoformat(),
+                    }
+                    for i in schedule
+                ],
+            }
             state.history.append({"offer": offer, "decision": decision.decision})
             return decision
 

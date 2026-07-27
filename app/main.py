@@ -14,6 +14,7 @@ from app.engine import evaluate
 from app.parsing import ParseError, parse_offer
 from app.policy import load_policy
 from app import compliance
+from app import agreements
 
 app = FastAPI(title="AI Collector - Tool API")
 
@@ -106,9 +107,62 @@ def _handle_check_compliance(call_id: str, args: dict) -> dict:
         "say": rule.script,
     }
 
+def _handle_finalize_agreement(call_id: str, args: dict) -> dict:
+    """Persist the agreement the engine approved.
+
+    Takes NO monetary arguments. The terms come from call state, written there
+    by the engine at the moment of acceptance. There is therefore no parameter
+    through which the model could record terms that were never authorised.
+    """
+    state = store.get_or_create(call_id)
+
+    if state.blocked:
+        return {
+            "finalized": False,
+            "reason": "compliance_hold",
+            "say": "I'm not able to set anything up on this account right now.",
+        }
+
+    if state.accepted is None:
+        return {
+            "finalized": False,
+            "reason": "no_approved_agreement",
+            "say": "We haven't settled on terms yet. What amount can you commit to?",
+        }
+
+    # The agent is instructed to read the terms back and obtain an explicit
+    # yes before calling this. The flag is recorded rather than trusted: the
+    # binding protection is that the amounts come from state, not from args.
+    confirmed = bool(args.get("consumer_confirmed", False))
+
+    agreement_id = agreements.save(
+        call_id=call_id,
+        accepted=state.accepted,
+        currency=POLICY.currency,
+        consumer_confirmed=confirmed,
+        compliance_events=state.compliance_events,
+        offer_history=state.history,
+    )
+
+    schedule = state.accepted["schedule"]
+    lines = ", then ".join(f"${p['amount']} on {p['due_date']}" for p in schedule)
+
+    return {
+        "finalized": True,
+        "agreement_id": agreement_id,
+        "total": state.accepted["total"],
+        "schedule": schedule,
+        "say": (
+            f"You're all set. That's {lines}. "
+            f"Your reference number is {agreement_id}. "
+            "You'll get written confirmation of these terms."
+        ),
+    }
+
 TOOL_HANDLERS = {
     "evaluate_offer": _handle_evaluate_offer,
     "check_compliance": _handle_check_compliance,
+    "finalize_agreement": _handle_finalize_agreement,
 }
 
 

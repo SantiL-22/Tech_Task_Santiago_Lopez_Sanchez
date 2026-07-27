@@ -33,3 +33,8 @@ class CallState:
 
     # Set when a statutory trigger fires. Once true, never reset.
     blocked: bool = False
+
+    # Snapshot of the agreement the engine accepted. Serialisable by design:
+    # storing a plain dict avoids a circular import with the engine and is
+    # exactly what gets persisted.
+    accepted: dict | None = None

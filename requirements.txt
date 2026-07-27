@@ -4,4 +4,4 @@ pydantic
 python-dotenv
 pyyaml
 pytest
-httpx
+httpx2
