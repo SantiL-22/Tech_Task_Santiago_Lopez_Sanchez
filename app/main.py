@@ -1,8 +1,101 @@
-from fastapi import FastAPI #Import fast API
+"""HTTP surface for the collections agent.
 
-app = FastAPI(title="AI Collector - Tool API") #Create fast API instance
+This layer is intentionally thin: it parses, delegates to the domain, and
+serialises. No negotiation logic lives here.
+"""
+
+import os
+from datetime import date
+
+from fastapi import FastAPI, Header, HTTPException
+
+from app import store
+from app.engine import evaluate
+from app.parsing import ParseError, parse_offer
+from app.policy import load_policy
+
+app = FastAPI(title="AI Collector - Tool API")
+
+POLICY = load_policy()
+TOOL_SECRET = os.getenv("TOOL_SECRET", "dev-secret")
 
 
-@app.get("/health") #Health check endpoint
+@app.get("/health")
 def health():
-    return {"ok": True, "service": "collector-tools"} #Return health check
+    return {"ok": True, "service": "collector-tools"}
+
+
+def _require_secret(provided: str | None) -> None:
+    """An endpoint that settles debts cannot be anonymous."""
+    if provided != TOOL_SECRET:
+        raise HTTPException(status_code=401, detail="unauthorized")
+
+
+def _serialise(decision) -> dict:
+    return {
+        "decision": decision.decision,
+        "tier": decision.tier_id,
+        "total": str(decision.total),
+        "reason_codes": decision.reason_codes,
+        "schedule": [
+            {
+                "seq": i.seq,
+                "amount": str(i.amount),
+                "due_date": i.due_date.isoformat(),
+            }
+            for i in decision.schedule
+        ],
+        # The only field the agent is allowed to speak from.
+        "say": decision.spoken_summary,
+    }
+
+
+def _handle_evaluate_offer(call_id: str, args: dict) -> dict:
+    state = store.get_or_create(call_id)
+    today = date.today()
+
+    try:
+        offer = parse_offer(args, today)
+    except ParseError as exc:
+        # Never guess a number. Ask the consumer to restate it.
+        return {
+            "decision": "unparseable",
+            "reason_codes": [str(exc)],
+            "say": "I didn't catch that amount. Could you say it again?",
+        }
+
+    return _serialise(evaluate(state, offer, POLICY, today))
+
+
+TOOL_HANDLERS = {
+    "evaluate_offer": _handle_evaluate_offer,
+}
+
+
+@app.post("/vapi/tools")
+async def vapi_tools(payload: dict, x_tool_secret: str | None = Header(default=None)):
+    """Webhook target for every tool the assistant can call.
+
+    Vapi batches tool calls into a single request, so we dispatch by name and
+    return one result per call id.
+    """
+    _require_secret(x_tool_secret)
+
+    message = payload.get("message", {})
+    call_id = message.get("call", {}).get("id", "unknown-call")
+    tool_calls = message.get("toolCallList") or message.get("toolCalls") or []
+
+    results = []
+    for tool_call in tool_calls:
+        name = tool_call.get("name") or tool_call.get("function", {}).get("name")
+        args = tool_call.get("arguments") or tool_call.get("function", {}).get("arguments") or {}
+
+        handler = TOOL_HANDLERS.get(name)
+        result = (
+            handler(call_id, args)
+            if handler
+            else {"error": f"unknown tool: {name}"}
+        )
+        results.append({"toolCallId": tool_call.get("id"), "result": result})
+
+    return {"results": results}
