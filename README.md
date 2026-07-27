@@ -75,6 +75,11 @@ engine at the moment of acceptance, and accepts no amounts from the model.
 All three arrive on a single webhook, `POST /vapi/tools`, authenticated by the
 `x-tool-secret` header. `GET /health` is an unauthenticated liveness check.
 
+`GET /dashboard` serves a read-only live operations view: the tool-call feed,
+each call's position on the concession ladder, and finalized agreements. It
+observes and never mutates. In deployment nginx enforces HTTP basic auth in
+front of it; credentials are provided separately.
+
 Every tool response includes a `say` field: the only text the agent is allowed
 to speak from, so numbers reaching the caller always originate in the engine.
 
