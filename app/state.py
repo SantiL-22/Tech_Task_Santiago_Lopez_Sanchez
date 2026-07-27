@@ -27,3 +27,9 @@ class CallState:
 
     def concede(self, max_rung: int) -> None:
         self.rung = min(self.rung + 1, max_rung)
+    
+    # Compliance rule ids triggered during this call.
+    compliance_events: list[str] = field(default_factory=list)
+
+    # Set when a statutory trigger fires. Once true, never reset.
+    blocked: bool = False
