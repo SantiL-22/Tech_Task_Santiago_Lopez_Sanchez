@@ -100,3 +100,13 @@ def get(agreement_id: str, path: Path = DB_PATH) -> dict | None:
 def count(path: Path = DB_PATH) -> int:
     with _connect(path) as conn:
         return conn.execute("SELECT COUNT(*) FROM agreements").fetchone()[0]
+
+
+def recent(limit: int = 25, path: Path = DB_PATH) -> list[dict]:
+    """Most recent agreements, for the read-only dashboard."""
+    with _connect(path) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT * FROM agreements ORDER BY created_at DESC LIMIT ?", (limit,)
+        ).fetchall()
+    return [dict(r) for r in rows]

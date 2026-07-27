@@ -16,6 +16,7 @@ from app.parsing import ParseError, parse_offer
 from app.policy import load_policy
 from app import compliance
 from app import agreements
+from app import dashboard
 
 logger = logging.getLogger("collector")
 
@@ -209,6 +210,10 @@ async def vapi_tools(payload: dict, x_tool_secret: str | None = Header(default=N
             if handler
             else {"error": f"unknown tool: {name}"}
         )
+        dashboard.record(call_id, name, result)
         results.append({"toolCallId": tool_call.get("id"), "result": result})
 
     return {"results": results}
+
+
+app.include_router(dashboard.router)
