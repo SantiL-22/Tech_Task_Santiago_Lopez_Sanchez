@@ -4,6 +4,7 @@ This layer is intentionally thin: it parses, delegates to the domain, and
 serialises. No negotiation logic lives here.
 """
 
+import logging
 import os
 from datetime import date
 
@@ -16,10 +17,28 @@ from app.policy import load_policy
 from app import compliance
 from app import agreements
 
+logger = logging.getLogger("collector")
+
 app = FastAPI(title="AI Collector - Tool API")
 
 POLICY = load_policy()
-TOOL_SECRET = os.getenv("TOOL_SECRET", "dev-secret")
+
+# An unset secret means an open endpoint that settles debts. The dev fallback
+# exists only for local runs; the Dockerfile sets REQUIRE_TOOL_SECRET=1 so a
+# deployed container refuses to boot without a real secret.
+_secret = os.getenv("TOOL_SECRET")
+if _secret is None:
+    if os.getenv("REQUIRE_TOOL_SECRET") == "1":
+        raise RuntimeError(
+            "TOOL_SECRET is not set. Refusing to start with the dev-secret "
+            "fallback outside local development. Set TOOL_SECRET in the "
+            "environment."
+        )
+    logger.warning(
+        "TOOL_SECRET is not set; using the dev-secret fallback. "
+        "Never deploy in this state."
+    )
+TOOL_SECRET = _secret or "dev-secret"
 
 
 @app.get("/health")
