@@ -273,8 +273,21 @@ async function initCall() {
   vapi.on("call-start", () => { lines = []; partial = null; drawTranscript();
                                 setState("connected - the agent speaks first", true); });
   vapi.on("call-end", () => setState("call ended", false));
-  vapi.on("error", e => setState("error: " + (e?.error?.message || e?.errorMsg || "call failed"), false));
+  vapi.on("error", e => {
+    // When the AGENT hangs up (End Call tool) some SDK versions surface it
+    // as an ejection/meeting-ended error instead of a call-end event.
+    const blob = JSON.stringify(e || {});
+    if (live && /eject|ended|end-?ed|hang|left/i.test(blob)) {
+      setState("call ended", false);
+    } else {
+      setState("error: " + (e?.error?.message || e?.errorMsg || e?.message || "call failed"), false);
+    }
+  });
   vapi.on("message", m => {
+    if (m.type === "status-update" && m.status === "ended") {
+      setState("call ended", false);
+      return;
+    }
     if (m.type !== "transcript") return;
     if (m.transcriptType === "final") {
       partial = null;
