@@ -101,6 +101,14 @@ false positives: ending a call unnecessarily costs one contact attempt,
 continuing after a cease request is a violation. Once a call is blocked it
 stays blocked; no later offer reopens it.
 
+Enforcement does not depend on the model. There are two detection paths into
+the same rules: the `check_compliance` tool, which the prompt instructs the
+model to call and which returns the script to read, and `POST /vapi/events`,
+where Vapi streams every transcribed consumer utterance during the call. The
+server scans each one, so a trigger freezes the negotiation server-side even
+if the model never calls the tool: the next `evaluate_offer` returns
+`blocked` regardless of how good the offer is.
+
 | Trigger | Basis | Effect |
 | --- | --- | --- |
 | Cease request | FDCPA 15 U.S.C. 1692c(c) | Script, end call, block |

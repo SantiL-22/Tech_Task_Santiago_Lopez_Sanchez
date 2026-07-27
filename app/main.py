@@ -216,4 +216,51 @@ async def vapi_tools(payload: dict, x_tool_secret: str | None = Header(default=N
     return {"results": results}
 
 
+@app.post("/vapi/events")
+async def vapi_events(
+    payload: dict,
+    x_tool_secret: str | None = Header(default=None),
+    x_vapi_secret: str | None = Header(default=None),
+):
+    """Server-side compliance monitor over live transcripts.
+
+    Vapi streams every transcribed utterance here during the call. Each final
+    consumer utterance is run through the same detector the check_compliance
+    tool uses, so a statutory trigger freezes the negotiation even if the
+    model never calls the tool. This is the enforcement path; the tool is the
+    cooperative path that also gives the model a script to read.
+
+    Vapi's assistant-level server config sends its secret as x-vapi-secret;
+    the tool header is accepted too so the endpoint can be exercised by hand.
+    """
+    _require_secret(x_vapi_secret or x_tool_secret)
+
+    message = payload.get("message", {})
+    if message.get("type") != "transcript":
+        return {}
+    if message.get("role") != "user" or message.get("transcriptType") != "final":
+        return {}
+
+    utterance = str(message.get("transcript", ""))
+    triggered = compliance.detect(utterance)
+    if not triggered:
+        return {}
+
+    call_id = message.get("call", {}).get("id", "unknown-call")
+    state = store.get_or_create(call_id)
+    state.compliance_events.extend(
+        t for t in triggered if t not in state.compliance_events
+    )
+    rule = compliance.most_severe(triggered)
+    if rule.blocks_negotiation:
+        state.blocked = True
+
+    dashboard.record(
+        call_id,
+        "transcript_monitor",
+        {"decision": "triggered", "reason_codes": triggered, "say": rule.script},
+    )
+    return {}
+
+
 app.include_router(dashboard.router)
