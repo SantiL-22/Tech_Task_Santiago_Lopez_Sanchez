@@ -37,9 +37,13 @@ RULES: dict[str, ComplianceRule] = {
     "cease_and_desist": ComplianceRule(
         id="cease_and_desist",
         basis="FDCPA 15 U.S.C. 1692c(c) - consumer request to cease communication",
+        # 1692c(c) permits notifying that collection efforts are terminated.
+        # The balance statement is on the approved-consequences list; it is a
+        # neutral fact, not leverage to reverse the cease request.
         script=(
             "Understood. I've recorded your request and we'll stop contacting you "
-            "about this account. Thank you for your time."
+            "about this account. The balance does remain on the account until "
+            "it's resolved. Thank you for your time."
         ),
         ends_call=True,
         blocks_negotiation=True,
