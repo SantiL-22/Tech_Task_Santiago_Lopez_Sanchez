@@ -1,0 +1,34 @@
+# The ONLY consequences the agent is permitted to state.
+#
+# Anything not on this list is, by definition, an invented consequence.
+# Each entry is factually true of a delinquent consumer debt of this kind and
+# is phrased without implied threat, deadline or legal prediction.
+#
+# In a real deployment this file would be reviewed and signed off by counsel
+# per portfolio and per jurisdiction. It is deliberately short.
+
+approved:
+  - id: balance_remains
+    text: "The balance stays on the account until it's resolved."
+
+  - id: continued_contact
+    text: "We'll keep trying to reach you about it."
+
+  - id: credit_reporting
+    text: "Accounts that stay unresolved can be reported to credit bureaus."
+
+  - id: interest_note
+    text: "No additional interest or fees are being added by us on this account."
+
+  - id: discount_is_conditional
+    text: "The reduced amount only applies if the agreed payments are made."
+
+# Explicitly forbidden. Present so the constraint is documented in the repo,
+# not because the code parses it: enforcement is by allow-list.
+forbidden_examples:
+  - "This is your final opportunity."
+  - "Legal action will be taken."
+  - "Your wages will be garnished."
+  - "This offer expires at midnight."
+  - "You could be arrested."
+  - "We will send someone to your address."
