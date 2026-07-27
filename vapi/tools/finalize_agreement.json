@@ -1,0 +1,23 @@
+{
+  "type": "function",
+  "async": false,
+  "function": {
+    "name": "finalize_agreement",
+    "description": "Persist the approved agreement and get the reference number. Call ONLY after evaluate_offer returned accept, you read the full payment schedule back to the consumer, and they gave an explicit yes.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "consumer_confirmed": {
+          "type": "boolean",
+          "description": "True only if the consumer explicitly confirmed the terms after hearing them read back"
+        }
+      },
+      "required": ["consumer_confirmed"]
+    }
+  },
+  "server": {
+    "url": "https://collections.santils.dev/vapi/tools",
+    "headers": { "x-tool-secret": "{{TOOL_SECRET}}" },
+    "timeoutSeconds": 20
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "type": "function",
+  "async": false,
+  "function": {
+    "name": "check_compliance",
+    "description": "Scan the consumer exact words for compliance triggers. Call this on every consumer turn that mentions lawyers, disputes, not owing the debt, bankruptcy, recording, wrong number, or wanting contact to stop. If it returns a script, read that script verbatim and stop negotiating.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "utterance": {
+          "type": "string",
+          "description": "The consumer own words, verbatim, from their last turn"
+        }
+      },
+      "required": ["utterance"]
+    }
+  },
+  "server": {
+    "url": "https://collections.santils.dev/vapi/tools",
+    "headers": { "x-tool-secret": "{{TOOL_SECRET}}" },
+    "timeoutSeconds": 20
+  }
+}

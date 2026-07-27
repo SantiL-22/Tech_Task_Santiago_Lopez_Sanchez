@@ -1,0 +1,36 @@
+{
+  "type": "function",
+  "async": false,
+  "function": {
+    "name": "evaluate_offer",
+    "description": "Evaluate a payment offer the consumer proposed. Call this whenever the consumer names any amount, number of payments, or timeframe. Report back exactly what it returns. If it returns counter, that counter is the only offer you can make.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "total": {
+          "type": "string",
+          "description": "Total amount the consumer offered, e.g. 850"
+        },
+        "num_payments": {
+          "type": "string",
+          "description": "Number of payments, e.g. 3. Omit if paying in full at once."
+        },
+        "cadence": {
+          "type": "string",
+          "enum": ["weekly", "biweekly", "monthly"],
+          "description": "How often the payments occur"
+        },
+        "first_payment_date": {
+          "type": "string",
+          "description": "First payment date in ISO format YYYY-MM-DD, only if the consumer named a concrete date"
+        }
+      },
+      "required": ["total"]
+    }
+  },
+  "server": {
+    "url": "https://collections.santils.dev/vapi/tools",
+    "headers": { "x-tool-secret": "{{TOOL_SECRET}}" },
+    "timeoutSeconds": 20
+  }
+}
