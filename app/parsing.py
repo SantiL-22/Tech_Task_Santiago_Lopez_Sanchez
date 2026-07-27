@@ -9,9 +9,9 @@ in a binding agreement.
 import re
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
-
 from app.models import ConsumerOffer
 from app.schedule import CENT
+
 
 DEFAULT_DAYS_TO_FIRST_PAYMENT = 3
 
@@ -35,11 +35,10 @@ class ParseError(ValueError):
 
 def parse_money(value) -> Decimal:
     """Coerce to an exact cent-quantized Decimal.
-
-    Quantizing at this boundary means every downstream component sees a
+    Quantizing here, at the boundary, means every downstream component sees a
     normalised amount. Decimal comparison ignores trailing zeros, so an
-    unquantized value passes every arithmetic test and only surfaces once
-    serialised to text on its way into storage.
+    unquantized value passes every arithmetic test and only surfaces when
+    serialised to text.
     """
     if isinstance(value, Decimal):
         return value.quantize(CENT)
@@ -49,7 +48,6 @@ def parse_money(value) -> Decimal:
         return Decimal(cleaned).quantize(CENT)
     except (InvalidOperation, ValueError):
         raise ParseError(f"unparseable amount: {value!r}")
-
 
 def parse_count(value) -> int:
     text = str(value).strip().lower()
@@ -74,9 +72,9 @@ def parse_cadence(value) -> str:
 def parse_date(value, today: date) -> date:
     """Accept an ISO date, or fall back to a near-term default.
 
-    We deliberately do NOT resolve phrases like "next Friday". The agent is
-    instructed to confirm a concrete date and pass it as ISO; anything else
-    defaults to a few days out, which validation then checks.
+    We deliberately do NOT attempt to resolve phrases like "next Friday". The
+    agent is instructed to confirm a concrete date and pass it as ISO; anything
+    else defaults to a few days out, which validation will then check.
     """
     if value in (None, "", "unknown"):
         return today + timedelta(days=DEFAULT_DAYS_TO_FIRST_PAYMENT)
