@@ -10,12 +10,17 @@ never depends on the transcript being available.
 """
 
 import json
+import os
 import sqlite3
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-DB_PATH = Path(__file__).resolve().parent.parent / "agreements.db"
+# Overridable so a container can point at a mounted volume; the default keeps
+# local runs and tests writing to the repo root as before.
+DB_PATH = Path(
+    os.getenv("DB_PATH", str(Path(__file__).resolve().parent.parent / "agreements.db"))
+)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS agreements (
