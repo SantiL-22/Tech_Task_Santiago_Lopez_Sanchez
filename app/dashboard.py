@@ -13,6 +13,7 @@ the dev server.
 """
 
 import os
+import time
 from collections import deque
 from datetime import datetime, timezone
 
@@ -45,6 +46,31 @@ def record(call_id: str, tool_name: str | None, result: dict) -> None:
     )
 
 
+# Live transcript mirror so phone calls are visible on the dashboard.
+# Privacy contract: text is held in process memory only while the call is
+# active, deleted the moment the call ends (or after inactivity as a
+# fallback), and never written to disk or included in any persisted record.
+LIVE_TRANSCRIPTS: dict[str, dict] = {}
+_TRANSCRIPT_IDLE_SECONDS = 600
+
+
+def transcript_add(call_id: str, role: str, text: str) -> None:
+    entry = LIVE_TRANSCRIPTS.setdefault(call_id, {"lines": [], "updated": 0.0})
+    entry["lines"].append({"role": role, "text": text})
+    entry["lines"] = entry["lines"][-100:]
+    entry["updated"] = time.time()
+
+
+def transcript_end(call_id: str) -> None:
+    LIVE_TRANSCRIPTS.pop(call_id, None)
+
+
+def _prune_transcripts() -> None:
+    cutoff = time.time() - _TRANSCRIPT_IDLE_SECONDS
+    for call_id in [k for k, v in LIVE_TRANSCRIPTS.items() if v["updated"] < cutoff]:
+        LIVE_TRANSCRIPTS.pop(call_id, None)
+
+
 def _serialise_call(state) -> dict:
     return {
         "call_id": state.call_id,
@@ -72,11 +98,16 @@ router = APIRouter()
 def dashboard_data():
     calls = [_serialise_call(s) for s in store._CALLS.values()]
     calls.reverse()  # newest call first
+    _prune_transcripts()
     return {
         "now": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "events": list(reversed(EVENTS)),
         "calls": calls,
         "agreements": agreements.recent(limit=25),
+        "live_calls": [
+            {"call_id": k, "lines": v["lines"]}
+            for k, v in LIVE_TRANSCRIPTS.items()
+        ],
     }
 
 
@@ -148,7 +179,7 @@ _PAGE = """<!doctype html>
   #callbtn.live { background:var(--bad); color:#1c0906; }
   #callbtn:disabled { opacity:.45; cursor:default; }
   #callstate { margin-left:12px; color:var(--dim); font-size:13px; }
-  #transcript { margin-top:14px; max-height:380px; overflow-y:auto;
+  #transcript, #phonetranscript { margin-top:14px; max-height:380px; overflow-y:auto;
                 display:flex; flex-direction:column; gap:8px; }
   .line { max-width:82%; padding:8px 12px; border-radius:12px; font-size:13.5px; }
   .line .who { display:block; font-size:10.5px; text-transform:uppercase;
@@ -234,6 +265,10 @@ _PAGE = """<!doctype html>
       <div id="transcript"></div>
       <div id="pastcalls" hidden></div>
     </div>
+    <div class="card" id="phonecard" hidden>
+      <h2>Live call &middot; phone</h2>
+      <div id="phonetranscript"></div>
+    </div>
     <div class="card">
       <h2>Negotiations this session</h2>
       <div id="calls" class="empty">No calls yet.</div>
@@ -304,6 +339,8 @@ function render(d) {
       <td>${esc(a.created_at.slice(0,19).replace("T"," "))}</td></tr>`).join("") +
     `</table></div>`;
 
+  renderPhone(d.live_calls || []);
+
   document.getElementById("k-calls").textContent = d.calls.length;
   document.getElementById("k-agreements").textContent = d.agreements.length;
   document.getElementById("k-blocked").textContent =
@@ -331,26 +368,67 @@ const stateEl = document.getElementById("callstate");
 const tEl = document.getElementById("transcript");
 let vapi = null, live = false, lines = [], partial = null;
 let callStart = null, pastCalls = [];
+const webCallIds = new Set();
+let phoneSeen = {};
 
-// Archive metadata only. The transcript text exists solely in this browser
-// tab while the call is live; it is never stored or sent anywhere.
-function archiveCall() {
-  if (!lines.length && !partial) return;
-  const secs = callStart ? Math.round((Date.now() - callStart) / 1000) : 0;
+function bubble(l) {
+  return `<div class="line ${l.role === "assistant" ? "agent" : "you"}">
+    <span class="who">${l.role === "assistant" ? "agent" : "caller"}</span>
+    <div>${esc(l.text)}</div></div>`;
+}
+
+function addLogEntry(agent, you, durSecs) {
   pastCalls.unshift({
     ended: new Date().toLocaleTimeString(),
-    dur: `${Math.floor(secs / 60)}m ${String(secs % 60).padStart(2, "0")}s`,
-    agent: lines.filter(l => l.role === "assistant").length,
-    you: lines.filter(l => l.role !== "assistant").length,
+    dur: `${Math.floor(durSecs / 60)}m ${String(Math.round(durSecs) % 60).padStart(2, "0")}s`,
+    agent, you,
   });
-  lines = []; partial = null;
-  drawTranscript();
   const el = document.getElementById("pastcalls");
   el.hidden = false;
   el.innerHTML = `<h3>Session call log</h3>` + pastCalls.map((c, i) => `
     <div class="pc"><b>Call ${pastCalls.length - i}</b> · ended ${esc(c.ended)}
       · ${esc(c.dur)} · ${c.agent + c.you} turns (${c.agent} agent / ${c.you} caller)
       <span class="lock">🔒 transcript discarded</span></div>`).join("");
+}
+
+// Mirror of server-side live transcripts (phone calls). The web call made
+// from this tab is excluded: it already renders from the SDK events.
+function renderPhone(liveCalls) {
+  const active = liveCalls.filter(c => !webCallIds.has(c.call_id));
+  const nowIds = new Set(active.map(c => c.call_id));
+  for (const [id, s] of Object.entries(phoneSeen)) {
+    if (!nowIds.has(id)) {
+      addLogEntry(s.agent, s.you, (Date.now() - s.t0) / 1000);
+      delete phoneSeen[id];
+    }
+  }
+  for (const c of active) {
+    const s = phoneSeen[c.call_id] || (phoneSeen[c.call_id] = { t0: Date.now() });
+    s.agent = c.lines.filter(l => l.role === "assistant").length;
+    s.you = c.lines.length - s.agent;
+  }
+  const card = document.getElementById("phonecard");
+  card.hidden = !active.length;
+  if (active.length) {
+    document.getElementById("phonetranscript").innerHTML =
+      active.map(c => c.lines.map(bubble).join("")).join("");
+    const t = document.getElementById("phonetranscript");
+    t.scrollTop = t.scrollHeight;
+  }
+}
+
+// Archive metadata only. The transcript text exists solely in this browser
+// tab while the call is live; it is never stored or sent anywhere.
+function archiveCall() {
+  if (!lines.length && !partial) return;
+  const secs = callStart ? Math.round((Date.now() - callStart) / 1000) : 0;
+  addLogEntry(
+    lines.filter(l => l.role === "assistant").length,
+    lines.filter(l => l.role !== "assistant").length,
+    secs,
+  );
+  lines = []; partial = null;
+  drawTranscript();
 }
 
 function drawTranscript() {
@@ -416,7 +494,9 @@ async function initCall() {
   btn.onclick = () => {
     if (live) { vapi.stop(); return; }
     setState("connecting…", false);
-    vapi.start(cfg.assistantId);
+    Promise.resolve(vapi.start(cfg.assistantId))
+      .then(c => { if (c && c.id) webCallIds.add(c.id); })
+      .catch(() => {});
   };
 }
 initCall();

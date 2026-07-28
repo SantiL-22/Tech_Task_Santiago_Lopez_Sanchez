@@ -236,17 +236,32 @@ async def vapi_events(
     _require_secret(x_vapi_secret or x_tool_secret)
 
     message = payload.get("message", {})
-    if message.get("type") != "transcript":
-        return {}
-    if message.get("role") != "user" or message.get("transcriptType") != "final":
+    mtype = message.get("type")
+    call_id = message.get("call", {}).get("id", "unknown-call")
+
+    # The call ended: drop its live transcript. Text never outlives the call.
+    if mtype in ("status-update", "end-of-call-report"):
+        if mtype == "end-of-call-report" or message.get("status") == "ended":
+            dashboard.transcript_end(call_id)
         return {}
 
+    if mtype != "transcript":
+        return {}
+    if message.get("transcriptType") != "final":
+        return {}
+
+    role = str(message.get("role", ""))
     utterance = str(message.get("transcript", ""))
+    # Mirror both sides to the dashboard's in-memory live view.
+    dashboard.transcript_add(call_id, role, utterance)
+
+    # Compliance scanning applies to consumer speech only.
+    if role != "user":
+        return {}
     triggered = compliance.detect(utterance)
     if not triggered:
         return {}
 
-    call_id = message.get("call", {}).get("id", "unknown-call")
     state = store.get_or_create(call_id)
     state.compliance_events.extend(
         t for t in triggered if t not in state.compliance_events
