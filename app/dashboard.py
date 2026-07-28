@@ -158,6 +158,12 @@ _PAGE = """<!doctype html>
   .line.you { align-self:flex-end; background:#1d3050;
               border-bottom-right-radius:4px; }
   .line.partial { opacity:.55; }
+  #pastcalls { border-top:1px solid var(--line); margin-top:14px; padding-top:10px; }
+  #pastcalls h3 { font-size:10.5px; text-transform:uppercase; letter-spacing:.09em;
+                  color:var(--dim); font-weight:600; margin-bottom:6px; }
+  .pc { font-size:12.5px; color:var(--dim); padding:3px 0; }
+  .pc b { color:var(--text); font-weight:600; }
+  .pc .lock { opacity:.7; margin-left:6px; }
 
   /* feed */
   #events { max-height:520px; overflow-y:auto; }
@@ -226,6 +232,7 @@ _PAGE = """<!doctype html>
         <span id="callstate">loading&hellip;</span>
       </div>
       <div id="transcript"></div>
+      <div id="pastcalls" hidden></div>
     </div>
     <div class="card">
       <h2>Negotiations this session</h2>
@@ -323,6 +330,28 @@ const btn = document.getElementById("callbtn");
 const stateEl = document.getElementById("callstate");
 const tEl = document.getElementById("transcript");
 let vapi = null, live = false, lines = [], partial = null;
+let callStart = null, pastCalls = [];
+
+// Archive metadata only. The transcript text exists solely in this browser
+// tab while the call is live; it is never stored or sent anywhere.
+function archiveCall() {
+  if (!lines.length && !partial) return;
+  const secs = callStart ? Math.round((Date.now() - callStart) / 1000) : 0;
+  pastCalls.unshift({
+    ended: new Date().toLocaleTimeString(),
+    dur: `${Math.floor(secs / 60)}m ${String(secs % 60).padStart(2, "0")}s`,
+    agent: lines.filter(l => l.role === "assistant").length,
+    you: lines.filter(l => l.role !== "assistant").length,
+  });
+  lines = []; partial = null;
+  drawTranscript();
+  const el = document.getElementById("pastcalls");
+  el.hidden = false;
+  el.innerHTML = `<h3>Session call log</h3>` + pastCalls.map((c, i) => `
+    <div class="pc"><b>Call ${pastCalls.length - i}</b> · ended ${esc(c.ended)}
+      · ${esc(c.dur)} · ${c.agent + c.you} turns (${c.agent} agent / ${c.you} caller)
+      <span class="lock">🔒 transcript discarded</span></div>`).join("");
+}
 
 function drawTranscript() {
   const all = partial ? lines.concat([partial]) : lines;
@@ -335,6 +364,7 @@ function drawTranscript() {
 }
 
 function setState(msg, isLive) {
+  if (live && !isLive) archiveCall();
   live = isLive;
   stateEl.textContent = msg;
   document.getElementById("btnlabel").textContent = isLive ? "End call" : "Start call";
@@ -354,7 +384,7 @@ async function initCall() {
     stateEl.textContent = "could not load Vapi SDK";
     return;
   }
-  vapi.on("call-start", () => { lines = []; partial = null; drawTranscript();
+  vapi.on("call-start", () => { callStart = Date.now();
                                 setState("connected - the agent speaks first", true); });
   vapi.on("call-end", () => setState("call ended", false));
   vapi.on("error", e => {
