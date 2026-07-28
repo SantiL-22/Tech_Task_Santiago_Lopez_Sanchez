@@ -85,8 +85,10 @@ derivations worth defending:
   compliance regexes, which run on transcribed text.
 - LiveKit smart endpointing: consumers hesitate mid-number ("I could do...
   maybe 700"); turn-based endpointing would jump in during the pause.
-- stopSpeakingPlan numWords=2: a bare "yeah" or "uh-huh" does not cut the
-  agent off mid schedule read; a real sentence does.
+- stopSpeakingPlan numWords=1: any consumer speech yields the floor
+  immediately. The tradeoff is accepted knowingly: a bare "yeah" during the
+  schedule read also stops the agent, but an uncooperative caller being
+  talked over reads far worse than an agent that pauses and resumes.
 - Tool request-start messages ("Let me check that") cover engine latency so
   it reads as a person checking a system, not dead air.
 - Background office ambience for phone realism.
