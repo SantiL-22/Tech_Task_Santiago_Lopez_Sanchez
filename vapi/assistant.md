@@ -40,17 +40,28 @@ after reading a compliance script whose rule ends the call (cease request,
 attorney, dispute, wrong party, bankruptcy). Without it the agent can only
 go silent.
 
-## Server messages (compliance enforcement path)
+## Server messages (compliance enforcement and live mirror)
 
-In the assistant's server settings:
+Configured via the API (the dashboard UI did not persist these reliably):
 
-- Server URL: `https://collections.santils.dev/vapi/events`
-- Server secret: the service's `TOOL_SECRET` (sent as `x-vapi-secret`)
-- Server messages enabled: `transcript`
+```
+PATCH /assistant/{id}
+{
+  "server": {"url": "https://collections.santils.dev/vapi/events",
+             "secret": "<TOOL_SECRET>"},
+  "serverMessages": ["transcript", "status-update", "end-of-call-report"]
+}
+```
 
-This streams every transcribed utterance to the service, which scans consumer
-turns with the same detector as `check_compliance`. A statutory trigger
-freezes the negotiation server-side even if the model never calls the tool.
+This streams every transcribed utterance to the service, which does two
+things with it and stores neither:
+
+- Scans consumer turns with the same detector as `check_compliance`. A
+  statutory trigger freezes the negotiation server-side even if the model
+  never calls the tool.
+- Mirrors the conversation to the dashboard's live view so phone calls are
+  visible in real time. Text is held in process memory only while the call
+  is active; `status-update: ended` / `end-of-call-report` delete it.
 
 ## Transcriber and voice
 
