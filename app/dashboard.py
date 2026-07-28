@@ -101,27 +101,39 @@ _PAGE = """<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Meridian Recovery Services - Operations</title>
 <style>
-  :root { --bg:#f2f4f7; --card:#ffffff; --line:#e6e9ee; --text:#1d2733;
-          --dim:#68737f; --navy:#1f3a5f; --accent:#2563eb;
-          --ok:#0f7b53; --ok-bg:#e7f5ef; --warn:#9a6700; --warn-bg:#fdf3dc;
-          --bad:#b3382c; --bad-bg:#fbeae8; }
+  :root { --bg:#0d1218; --card:#151c26; --line:#242f3d; --text:#dbe3ed;
+          --dim:#8a96a5; --head:#0a0f15; --accent:#4da3ff;
+          --ok:#43d18e; --ok-bg:rgba(67,209,142,.12);
+          --warn:#e8b64c; --warn-bg:rgba(232,182,76,.12);
+          --bad:#f07a6a; --bad-bg:rgba(240,122,106,.12); }
   * { box-sizing:border-box; margin:0; }
   body { background:var(--bg); color:var(--text); padding:0 0 40px;
          font:14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter,
          Roboto, sans-serif; }
-  header { background:var(--navy); color:#fff; padding:16px 28px;
+  header { background:var(--head); border-bottom:1px solid var(--line);
+           color:#fff; padding:16px 28px;
            display:flex; align-items:baseline; gap:14px; }
   header .brand { font-size:17px; font-weight:700; letter-spacing:.2px; }
-  header .sub { font-size:13px; color:#b9c6d8; }
-  #status { margin-left:auto; font-size:12px; color:#b9c6d8; }
+  header .sub { font-size:13px; color:var(--dim); }
+  #status { margin-left:auto; font-size:12px; color:var(--dim); }
   #status::before { content:""; display:inline-block; width:8px; height:8px;
-                    border-radius:50%; background:#3fd08a; margin-right:6px; }
-  .wrap { max-width:1200px; margin:24px auto 0; padding:0 20px; }
+                    border-radius:50%; background:var(--ok); margin-right:6px; }
+  .wrap { max-width:1200px; margin:22px auto 0; padding:0 20px; }
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:18px;
+           margin-bottom:18px; }
+  @media (max-width:920px){ .stats { grid-template-columns:repeat(2,1fr); } }
+  .kpi { background:var(--card); border:1px solid var(--line); border-radius:12px;
+         padding:14px 18px; }
+  .kpi .num { font-size:26px; font-weight:700; line-height:1.2; }
+  .kpi .lbl { font-size:11px; text-transform:uppercase; letter-spacing:.09em;
+              color:var(--dim); margin-top:2px; }
+  .kpi.good .num { color:var(--ok); }
+  .kpi.warn .num { color:var(--bad); }
   .grid { display:grid; grid-template-columns:1.15fr 1fr; gap:18px; }
   @media (max-width:920px){ .grid { grid-template-columns:1fr; } }
   .col { display:flex; flex-direction:column; gap:18px; min-width:0; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:12px;
-          padding:18px 20px; box-shadow:0 1px 2px rgba(16,24,40,.05); }
+          padding:18px 20px; }
   h2 { font-size:11px; text-transform:uppercase; letter-spacing:.1em;
        color:var(--dim); margin-bottom:12px; font-weight:600; }
   .empty { color:var(--dim); font-size:13px; padding:6px 0; }
@@ -129,32 +141,33 @@ _PAGE = """<!doctype html>
 
   /* call panel */
   #callbtn { display:inline-flex; align-items:center; gap:8px;
-             background:var(--accent); color:#fff; border:none; border-radius:999px;
+             background:var(--accent); color:#08121f; border:none; border-radius:999px;
              padding:10px 22px; font:inherit; font-size:14px; font-weight:600;
              cursor:pointer; transition:background .15s; }
-  #callbtn:hover { background:#1d4fd7; }
-  #callbtn.live { background:var(--bad); }
+  #callbtn:hover { background:#71b7ff; }
+  #callbtn.live { background:var(--bad); color:#1c0906; }
   #callbtn:disabled { opacity:.45; cursor:default; }
   #callstate { margin-left:12px; color:var(--dim); font-size:13px; }
-  #transcript { margin-top:14px; max-height:360px; overflow-y:auto;
+  #transcript { margin-top:14px; max-height:380px; overflow-y:auto;
                 display:flex; flex-direction:column; gap:8px; }
   .line { max-width:82%; padding:8px 12px; border-radius:12px; font-size:13.5px; }
   .line .who { display:block; font-size:10.5px; text-transform:uppercase;
                letter-spacing:.07em; color:var(--dim); margin-bottom:2px; }
-  .line.agent { align-self:flex-start; background:#f0f2f5;
+  .line.agent { align-self:flex-start; background:#1c2532;
                 border-bottom-left-radius:4px; }
-  .line.you { align-self:flex-end; background:#e3ecfd;
+  .line.you { align-self:flex-end; background:#1d3050;
               border-bottom-right-radius:4px; }
   .line.partial { opacity:.55; }
 
   /* feed */
+  #events { max-height:520px; overflow-y:auto; }
   .ev { border-left:3px solid var(--line); padding:6px 0 6px 12px; margin:10px 0; }
   .ev.d-accept, .ev.d-finalized, .ev.d-clear { border-left-color:var(--ok); }
   .ev.d-counter { border-left-color:var(--warn); }
   .ev.d-reject, .ev.d-blocked, .ev.d-triggered, .ev.d-unparseable { border-left-color:var(--bad); }
   .say { color:var(--dim); font-style:italic; margin-top:3px; font-size:13px; }
   .tag { display:inline-block; padding:1px 9px; border-radius:999px; font-size:11.5px;
-         font-weight:600; margin-right:6px; background:#eef0f3; color:var(--dim); }
+         font-weight:600; margin-right:6px; background:#212b38; color:var(--dim); }
   .t-accept,.t-finalized,.t-clear { color:var(--ok); background:var(--ok-bg); }
   .t-counter { color:var(--warn); background:var(--warn-bg); }
   .t-reject,.t-blocked,.t-triggered,.t-unparseable { color:var(--bad); background:var(--bad-bg); }
@@ -166,14 +179,14 @@ _PAGE = """<!doctype html>
   .ladder { display:flex; align-items:center; margin:10px 0 6px; }
   .step { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--dim);
           white-space:nowrap; }
-  .step .dot { width:22px; height:22px; border-radius:50%; background:#eef0f3;
+  .step .dot { width:22px; height:22px; border-radius:50%; background:#212b38;
                color:var(--dim); display:flex; align-items:center; justify-content:center;
                font-size:11px; font-weight:600; }
-  .step.done .dot { background:#dce6f5; color:var(--navy); }
-  .step.on .dot { background:var(--navy); color:#fff; }
-  .step.on { color:var(--navy); font-weight:600; }
+  .step.done .dot { background:#24405f; color:#9cc4f0; }
+  .step.on .dot { background:var(--accent); color:#06111d; }
+  .step.on { color:var(--accent); font-weight:600; }
   .bar { flex:1; height:2px; background:var(--line); margin:0 6px; min-width:12px; }
-  .bar.done { background:var(--navy); }
+  .bar.done { background:var(--accent); }
 
   /* agreements */
   table { width:100%; border-collapse:collapse; font-size:13px; }
@@ -181,7 +194,7 @@ _PAGE = """<!doctype html>
   th { color:var(--dim); font-weight:600; font-size:11px; text-transform:uppercase;
        letter-spacing:.07em; }
   tr:last-child td { border-bottom:none; }
-  .amount { font-weight:700; color:var(--navy); }
+  .amount { font-weight:700; color:var(--accent); }
 </style>
 </head>
 <body>
@@ -191,6 +204,16 @@ _PAGE = """<!doctype html>
   <span id="status"></span>
 </header>
 <div class="wrap">
+<div class="stats">
+  <div class="kpi"><div class="num" id="k-calls">0</div>
+    <div class="lbl">Negotiations</div></div>
+  <div class="kpi good"><div class="num" id="k-agreements">0</div>
+    <div class="lbl">Agreements</div></div>
+  <div class="kpi good"><div class="num" id="k-collected">$0</div>
+    <div class="lbl">Committed</div></div>
+  <div class="kpi warn"><div class="num" id="k-blocked">0</div>
+    <div class="lbl">Compliance holds</div></div>
+</div>
 <div class="grid">
   <div class="col">
     <div class="card">
@@ -273,6 +296,14 @@ function render(d) {
       <td>${a.num_payments} ${esc(a.cadence)}</td><td>${esc(a.call_id)}</td>
       <td>${esc(a.created_at.slice(0,19).replace("T"," "))}</td></tr>`).join("") +
     `</table></div>`;
+
+  document.getElementById("k-calls").textContent = d.calls.length;
+  document.getElementById("k-agreements").textContent = d.agreements.length;
+  document.getElementById("k-blocked").textContent =
+    d.calls.filter(c => c.blocked).length;
+  const collected = d.agreements.reduce((s, a) => s + parseFloat(a.total || 0), 0);
+  document.getElementById("k-collected").textContent =
+    "$" + collected.toLocaleString("en-US", {maximumFractionDigits: 0});
 
   document.getElementById("status").textContent =
     "live · " + new Date().toLocaleTimeString();
