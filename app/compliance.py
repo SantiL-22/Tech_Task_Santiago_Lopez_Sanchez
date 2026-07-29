@@ -132,6 +132,7 @@ PATTERNS: dict[str, list[str]] = {
         r"\bprove (it|that i owe)\b",
         r"\bidentity theft\b",
         r"\bvalidat(e|ion) (of )?(this |the )?debt\b",
+        r"\bdebt validation\b",
     ],
     "wrong_party": [
         r"\bwrong number\b",
@@ -149,6 +150,7 @@ PATTERNS: dict[str, list[str]] = {
         r"\bi'?m recording\b",
         r"\brecording this call\b",
         r"\bthis is being recorded\b",
+        r"\bcall is being recorded\b",
     ],
 }
 

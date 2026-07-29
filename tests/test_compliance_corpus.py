@@ -52,6 +52,8 @@ TRUE_POSITIVES = [
     ("i'm recording this", "recording_notice"),
     ("i am recording this call", "recording_notice"),
     ("just so you know, this is being recorded", "recording_notice"),
+    ("this call is being recorded", "recording_notice"),
+    ("i want debt validation", "dispute"),
 ]
 
 
@@ -97,19 +99,18 @@ def test_conservative_bias_is_pinned(utterance, rule_id):
     assert rule_id in compliance.detect(utterance)
 
 
-# --- Known gaps: SHOULD trigger, currently do not ---------------------------
-# Kept visible as xfail. If a pattern is added and one starts passing, the
-# xpass shows up in the run and the phrase moves to TRUE_POSITIVES.
+# --- Known gaps: SHOULD arguably trigger, currently do not ------------------
+# Kept visible as xfail. "leave me alone" is deliberately unresolved: it is
+# closer to a complaint than to a formal cease request, and treating it as a
+# cease would mark the account non-contactable without the consumer asking.
 
 KNOWN_GAPS = [
-    ("this call is being recorded", "recording_notice"),
-    ("i want debt validation", "dispute"),
     ("leave me alone", "cease_and_desist"),
 ]
 
 
 @pytest.mark.parametrize("utterance,rule_id", KNOWN_GAPS)
-@pytest.mark.xfail(reason="paraphrase not covered by current patterns", strict=False)
+@pytest.mark.xfail(reason="ambiguous: complaint vs formal cease request", strict=False)
 def test_known_paraphrase_gaps(utterance, rule_id):
     assert rule_id in compliance.detect(utterance)
 
