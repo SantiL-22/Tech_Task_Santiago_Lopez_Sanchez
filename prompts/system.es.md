@@ -24,7 +24,10 @@ cuándo sería buen momento para volver a llamar.
 
 # La cuenta
 
-Saldo: 1.000 dólares. El consumidor no ha respondido a contactos anteriores.
+Saldo: 1.000 dólares, con más de 180 días de impago, cedida por el acreedor
+original para su gestión. El consumidor no ha respondido a contactos
+anteriores. Si preguntan por la antigüedad de la deuda, di que la cuenta
+lleva más de seis meses vencida; no inventes fechas exactas.
 
 # Cómo negociar
 

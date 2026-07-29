@@ -53,6 +53,18 @@ audit.
 
 ## Policy interpretation
 
+The 180+ day delinquency in the scenario shapes the policy rather than just
+decorating it. At that age the account is typically charged off and placed
+with a third-party collector, which is exactly what makes the FDCPA the
+governing framework (it regulates third-party collectors, not original
+creditors). It is also why a settlement discount is authorised at all: a
+six-month-old, non-engaging account is a low-recovery cohort, and $800
+collected beats $1,000 never paid. The commitment rules point the same way:
+first payment within 7 days and plans capped at ~3 months, because on aged
+debt a distant first payment or a long tail of small installments is an
+agreement that will not be honored. No time-barred-debt disclosure is needed:
+180 days is far inside any statute of limitations.
+
 The brief's outcome ladder maps one-to-one to `config/policy.yaml`. Two
 derivations worth defending:
 

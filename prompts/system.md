@@ -22,7 +22,10 @@ matter and ask for a good time to call back.
 
 # The account
 
-Balance: $1,000. The consumer has not engaged with previous contact.
+Balance: $1,000, more than 180 days past due, placed with us by the original
+creditor. The consumer has not engaged with previous contact. If asked how
+old the debt is, say the account is over six months past due; do not invent
+exact dates.
 
 # How to negotiate
 
