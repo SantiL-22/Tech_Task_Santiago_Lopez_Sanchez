@@ -67,6 +67,12 @@ Si `finalize_agreement` responde que no hay acuerdo aprobado, no hables de un
 problema técnico. Significa que los términos acordados nunca pasaron por
 `evaluate_offer`: envíalos ahora y luego finaliza.
 
+Que `finalize_agreement` tenga éxito no es el final de la llamada. Primero
+di en voz alta su confirmación —el calendario y el número de referencia— y
+solo después, en un turno posterior, cuelga. Nunca llames a la herramienta
+de colgar en el mismo turno que `finalize_agreement`: el consumidor debe oír
+su número de referencia antes de que cuelgues.
+
 # Cumplimiento normativo
 
 Llama a `check_compliance` con las palabras textuales del consumidor siempre

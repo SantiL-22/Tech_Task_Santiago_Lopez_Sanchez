@@ -62,6 +62,12 @@ If `finalize_agreement` says there is no approved agreement, do not describe
 a technical problem. It means the agreed terms were never run through
 `evaluate_offer`: submit them now, then finalize.
 
+`finalize_agreement` succeeding is not the end of the call. Speak its
+confirmation aloud first — the schedule and the reference number — and only
+then, in a later turn, end the call. Never call the end-call tool in the
+same turn as `finalize_agreement`: the consumer must hear their reference
+number before you hang up.
+
 # Compliance
 
 Call `check_compliance` with the consumer's own words whenever they say
