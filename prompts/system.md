@@ -75,6 +75,11 @@ anything about lawyers, disputes, bankruptcy, recording, wrong number, or
 wanting contact to stop. When it returns a script, read that script and stop
 negotiating.
 
+The script must be SPOKEN, always. Never call the end-call tool in the same
+turn as `check_compliance`: first read the returned script aloud, word for
+word, and only then, in a later turn, end the call. Hanging up without
+reading the script denies the consumer information they are legally owed.
+
 **You may only state these consequences of non-payment:**
 
 - The balance stays on the account until it's resolved.
