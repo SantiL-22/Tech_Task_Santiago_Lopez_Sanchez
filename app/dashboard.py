@@ -449,19 +449,13 @@ function setState(msg, isLive) {
   btn.classList.toggle("live", isLive);
 }
 
-async function initCall() {
-  const cfg = await fetch("/dashboard/config").then(r => r.json()).catch(() => null);
-  if (!cfg || !cfg.publicKey || !cfg.assistantId) {
-    stateEl.textContent = "web call not configured";
-    return;
-  }
-  try {
-    const mod = await import("https://esm.sh/@vapi-ai/web");
-    vapi = new (mod.default)(cfg.publicKey);
-  } catch (e) {
-    stateEl.textContent = "could not load Vapi SDK";
-    return;
-  }
+let VapiCtor = null, cfgCache = null;
+
+// A FRESH client per call. Reusing one instance leaves the previous call's
+// audio pipeline attached, and the next call connects but plays no sound
+// until the page is refreshed.
+function wireCall() {
+  vapi = new VapiCtor(cfgCache.publicKey);
   vapi.on("call-start", () => { callStart = Date.now();
                                 setState("connected - the agent speaks first", true); });
   vapi.on("call-end", () => setState("call ended", false));
@@ -489,12 +483,28 @@ async function initCall() {
     }
     drawTranscript();
   });
+}
+
+async function initCall() {
+  cfgCache = await fetch("/dashboard/config").then(r => r.json()).catch(() => null);
+  if (!cfgCache || !cfgCache.publicKey || !cfgCache.assistantId) {
+    stateEl.textContent = "web call not configured";
+    return;
+  }
+  try {
+    const mod = await import("https://esm.sh/@vapi-ai/web");
+    VapiCtor = mod.default;
+  } catch (e) {
+    stateEl.textContent = "could not load Vapi SDK";
+    return;
+  }
   btn.disabled = false;
   setState("ready - uses your microphone", false);
   btn.onclick = () => {
     if (live) { vapi.stop(); return; }
     setState("connecting…", false);
-    Promise.resolve(vapi.start(cfg.assistantId))
+    wireCall();
+    Promise.resolve(vapi.start(cfgCache.assistantId))
       .then(c => { if (c && c.id) webCallIds.add(c.id); })
       .catch(() => {});
   };
