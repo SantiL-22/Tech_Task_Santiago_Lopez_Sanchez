@@ -35,6 +35,9 @@ class Decision:
     spoken_summary: str
 
 
+# A tier floors the total and caps the payment count. There is no upper cap
+# on the total here: collecting above the tier minimum is always welcome, and
+# the balance ceiling is validation's job, not the ladder's.
 def _offer_matches_tier(offer: ConsumerOffer, tier: Tier) -> bool:
     return (
         offer.total >= tier.min_total
@@ -122,6 +125,8 @@ def evaluate(
                 reason_codes=[],
                 spoken_summary=f"Agreed: {_describe(schedule)}.",
             )
+            # Accepted offers raise the bar too: walking back an acceptance
+            # must not make cheaper tiers reachable afterwards.
             state.best_offer_total = max(state.best_offer_total, offer.total)
             # Record what was approved. finalize_agreement reads from here and
             # never from tool arguments, so the model cannot persist terms the

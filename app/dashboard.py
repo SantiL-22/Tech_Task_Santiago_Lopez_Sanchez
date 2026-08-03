@@ -34,6 +34,8 @@ def record(call_id: str, tool_name: str | None, result: dict) -> None:
             "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "call_id": call_id,
             "tool": tool_name or "unknown",
+            # The three handlers return different shapes; collapse them into
+            # a single label the feed can colour-code.
             "decision": result.get("decision")
             or ("finalized" if result.get("finalized") else None)
             or ("clear" if result.get("clear") else None)
@@ -288,6 +290,8 @@ _PAGE = """<!doctype html>
 </div>
 <script>
 const LADDER = ["paid_in_full", "downpayment_plus_one", "settlement", "payment_plan"];
+// Everything rendered here once came out of someone's mouth on a phone call,
+// so escape it all before it touches innerHTML.
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c =>
   ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
@@ -353,6 +357,9 @@ function render(d) {
     "live · " + new Date().toLocaleTimeString();
 }
 
+// One poll drives the whole page: every two seconds, fetch the state and
+// redraw each panel from scratch. No websockets to babysit, and a missed
+// poll costs two seconds of staleness at worst.
 async function tick() {
   try {
     const r = await fetch("/dashboard/data", {cache: "no-store"});

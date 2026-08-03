@@ -53,6 +53,8 @@ def _require_secret(provided: str | None) -> None:
         raise HTTPException(status_code=401, detail="unauthorized")
 
 
+# Decimals and dates go out as strings. The model only repeats these values,
+# and JSON floats would reintroduce the rounding drift Decimal exists to avoid.
 def _serialise(decision) -> dict:
     return {
         "decision": decision.decision,
@@ -179,6 +181,8 @@ def _handle_finalize_agreement(call_id: str, args: dict) -> dict:
         ),
     }
 
+# Dispatch table for the webhook below. Keys must match the tool names
+# configured in Vapi exactly; anything else falls through to "unknown tool".
 TOOL_HANDLERS = {
     "evaluate_offer": _handle_evaluate_offer,
     "check_compliance": _handle_check_compliance,
@@ -197,10 +201,13 @@ async def vapi_tools(payload: dict, x_tool_secret: str | None = Header(default=N
 
     message = payload.get("message", {})
     call_id = message.get("call", {}).get("id", "unknown-call")
+    # Vapi has shipped both field names for the batch over time; take either.
     tool_calls = message.get("toolCallList") or message.get("toolCalls") or []
 
     results = []
     for tool_call in tool_calls:
+        # Same story per item: fields arrive flat or nested under "function"
+        # depending on the payload version.
         name = tool_call.get("name") or tool_call.get("function", {}).get("name")
         args = tool_call.get("arguments") or tool_call.get("function", {}).get("arguments") or {}
 
@@ -247,6 +254,9 @@ async def vapi_events(
 
     if mtype != "transcript":
         return {}
+    # Partials are rolling fragments of the sentence still being spoken;
+    # scanning them would fire the same rule several times before the final
+    # version arrives. Finals only.
     if message.get("transcriptType") != "final":
         return {}
 

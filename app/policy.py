@@ -49,6 +49,8 @@ def load_policy(path: Path = CONFIG_PATH) -> Policy:
     raw = yaml.safe_load(path.read_text())
     limits = raw["limits"]
 
+    # Tiers keep the order they have in the YAML file. That order IS the
+    # negotiation strategy, so nothing here sorts or filters them.
     ladder = tuple(
         Tier(
             id=rung["id"],

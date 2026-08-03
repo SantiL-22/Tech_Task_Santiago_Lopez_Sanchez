@@ -15,11 +15,14 @@ from app.schedule import CENT
 
 DEFAULT_DAYS_TO_FIRST_PAYMENT = 3
 
+# The transcriber writes small counts out as words often enough to matter.
 WORD_NUMBERS = {
     "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
     "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
 }
 
+# Left side: things people actually say on the phone. Right side: the three
+# cadences the rest of the system understands.
 CADENCE_ALIASES = {
     "weekly": "weekly", "week": "weekly", "every week": "weekly",
     "biweekly": "biweekly", "bi-weekly": "biweekly", "fortnightly": "biweekly",
