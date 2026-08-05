@@ -7,7 +7,7 @@ currency: USD
 
 limits:
   # No single installment may fall below this share of the agreed total.
-  min_payment_pct: 0.25
+  min_payment_pct: 0.20
 
   # Derived from the rule above: total/n >= 0.25*total implies n <= 4.
   max_payments: 4
@@ -22,7 +22,7 @@ limits:
 
   # Maximum settlement discount is 20%, so nothing below this is ever
   # acceptable regardless of how the negotiation goes.
-  min_acceptable_total: 800.00
+  min_acceptable_total: 850.00
 
 # Concession ladder, in order of business preference.
 # Each rung is STRICTER than the global envelope above; the envelope is the
@@ -38,17 +38,19 @@ ladder:
     max_payments: 2
     # Maximize the downpayment: 25% floor makes 75/25 the most aggressive
     # split available.
-    skew: [0.75, 0.25]
+    skew: [0.60, 0.40]
     allowed_cadences: [weekly, biweekly, monthly]
 
   - id: settlement
     # Up to 20% off. Capped at 3 payments by the brief.
-    min_total: 800.00
+    min_total: 850.00
     max_payments: 3
+    skew: [0.40, 0.30, 0.30]
     allowed_cadences: [weekly, biweekly, monthly]
 
   - id: payment_plan
     # No discount whatsoever. The 25% floor caps this at 4 payments.
     min_total: 1000.00
     max_payments: 4
+    skew: [0.40, 0.20, 0.20, 0.20]
     allowed_cadences: [weekly, biweekly, monthly]
