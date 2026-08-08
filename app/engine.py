@@ -7,13 +7,22 @@ where the floors are.
 Order of operations matters:
   1. Hard validation. Illegal offers are rejected and cost no concession.
   2. Acceptance check against every tier at or above the current rung.
-  3. Concession, granted only if the consumer improved their own offer.
-  4. Counter built deterministically from the resulting tier.
+  3. Concession, granted when the consumer improves their own offer OR when
+     they offer the full balance but need a structure the current rung can't
+     grant (paying in full is never a discount, so this costs nothing).
+  4. Re-check acceptance at the newly reached rung.
+  5. Counter built deterministically from the resulting tier.
+
+The ladder is monotonic in the business's favour: once the consumer has
+offered N, the engine never accepts less than N on this call. That single
+invariant keeps the concession logic from ever leaking a discount, however
+the rung was reached.
 """
 
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
+from typing import Optional
 
 from app.models import ConsumerOffer
 from app.policy import Policy, Tier
@@ -85,6 +94,58 @@ def _describe(schedule: list[Installment]) -> str:
     return ", then ".join(parts)
 
 
+def _attempt_accept(
+    state: CallState, offer: ConsumerOffer, today: date, policy: Policy
+) -> Optional[Decision]:
+    """Accept the offer at the best tier already reached, or return None.
+
+    An offer is acceptable if it satisfies any tier at or below the current
+    rung. Earlier tiers are checked too, so a consumer who suddenly offers
+    better terms is accepted immediately rather than negotiated back down.
+
+    The guard `offer.total >= best_offer_total` is the monotonicity invariant:
+    the engine never accepts less than the consumer has already offered on this
+    call. It passes for the offer that just raised the bar (that offer set
+    best_offer_total to its own total), so it never blocks a legitimate
+    settlement; it only refuses a genuine walk-back to a cheaper number.
+    """
+    if offer.total < state.best_offer_total:
+        return None
+
+    for tier in policy.ladder[: state.rung + 1]:
+        if _offer_matches_tier(offer, tier):
+            schedule = build_schedule(
+                offer.total, offer.num_payments, offer.cadence, offer.first_payment_date
+            )
+            state.best_offer_total = max(state.best_offer_total, offer.total)
+            # Record what was approved. finalize_agreement reads from here and
+            # never from tool arguments, so the model cannot persist terms the
+            # engine did not authorise.
+            state.accepted = {
+                "tier_id": tier.id,
+                "total": str(offer.total),
+                "num_payments": offer.num_payments,
+                "cadence": offer.cadence,
+                "schedule": [
+                    {
+                        "seq": i.seq,
+                        "amount": str(i.amount),
+                        "due_date": i.due_date.isoformat(),
+                    }
+                    for i in schedule
+                ],
+            }
+            return Decision(
+                decision="accept",
+                tier_id=tier.id,
+                total=offer.total,
+                schedule=schedule,
+                reason_codes=[],
+                spoken_summary=f"Agreed: {_describe(schedule)}.",
+            )
+    return None
+
+
 def evaluate(
     state: CallState,
     offer: ConsumerOffer,
@@ -108,52 +169,39 @@ def evaluate(
         state.history.append({"offer": offer, "decision": decision.decision})
         return decision
 
-    # 2. Acceptance 
-    # An offer is acceptable if it satisfies any tier we have already reached.
-    # Checking earlier tiers too means a consumer who suddenly offers better
-    # terms is accepted immediately rather than negotiated back down.
-    for tier in policy.ladder[: state.rung + 1]:
-        if _offer_matches_tier(offer, tier):
-            schedule = build_schedule(
-                offer.total, offer.num_payments, offer.cadence, offer.first_payment_date
-            )
-            decision = Decision(
-                decision="accept",
-                tier_id=tier.id,
-                total=offer.total,
-                schedule=schedule,
-                reason_codes=[],
-                spoken_summary=f"Agreed: {_describe(schedule)}.",
-            )
-            # Accepted offers raise the bar too: walking back an acceptance
-            # must not make cheaper tiers reachable afterwards.
-            state.best_offer_total = max(state.best_offer_total, offer.total)
-            # Record what was approved. finalize_agreement reads from here and
-            # never from tool arguments, so the model cannot persist terms the
-            # engine did not authorise.
-            state.accepted = {
-                "tier_id": tier.id,
-                "total": str(offer.total),
-                "num_payments": offer.num_payments,
-                "cadence": offer.cadence,
-                "schedule": [
-                    {
-                        "seq": i.seq,
-                        "amount": str(i.amount),
-                        "due_date": i.due_date.isoformat(),
-                    }
-                    for i in schedule
-                ],
-            }
-            state.history.append({"offer": offer, "decision": decision.decision})
-            return decision
+    # 2. Acceptance at the current rung.
+    accepted = _attempt_accept(state, offer, today, policy)
+    if accepted is not None:
+        state.history.append({"offer": offer, "decision": accepted.decision})
+        return accepted
 
     # 3. Concession
+    last_rung = len(policy.ladder) - 1
     if offer.total > state.best_offer_total:
-        state.concede(max_rung=len(policy.ladder) - 1)
+        # The consumer raised their own best offer: standard one-rung climb.
+        state.concede(max_rung=last_rung)
         state.best_offer_total = offer.total
+    elif offer.total >= policy.balance:
+        # Ceiling deadlock: the consumer offers the full balance but needs a
+        # tier the current rung can't grant (usually more payments). Paying in
+        # full is never a discount request, so walking them down to a tier that
+        # fits their structure costs the business nothing. Advance until the
+        # offer fits or the ladder runs out. The accept guard still forbids any
+        # later sub-balance offer from exploiting a discount tier reached here.
+        while state.rung < last_rung and not any(
+            _offer_matches_tier(offer, t) for t in policy.ladder[: state.rung + 1]
+        ):
+            state.concede(max_rung=last_rung)
 
-    # 4. Counter
+    # 4. Re-check acceptance at the rung we just reached. This captures the
+    #    offer that triggered the concession (fixing the value the old order
+    #    left on the table) and closes the full-balance deadlock.
+    accepted = _attempt_accept(state, offer, today, policy)
+    if accepted is not None:
+        state.history.append({"offer": offer, "decision": accepted.decision})
+        return accepted
+
+    # 5. Counter
     tier = policy.ladder[state.rung]
     counter = _build_counter(tier, offer, policy, today)
     decision = Decision(

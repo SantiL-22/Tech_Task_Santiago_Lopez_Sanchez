@@ -24,7 +24,14 @@ def test_full_payment_is_valid():
 
 
 def test_max_settlement_is_valid():
-    assert validate_offer(offer("800.00", 3), POLICY, TODAY) == []
+    # The settlement floor is $850 (max 15% off the $1,000 balance).
+    assert validate_offer(offer("850.00", 3), POLICY, TODAY) == []
+
+
+def test_below_settlement_floor_is_rejected():
+    assert "below_minimum_acceptable_total" in validate_offer(
+        offer("800.00", 3), POLICY, TODAY
+    )
 
 
 def test_overpayment_is_rejected():
