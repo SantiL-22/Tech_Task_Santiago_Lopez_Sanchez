@@ -51,6 +51,45 @@ hallucinated "$200 in 12 payments", what lands in SQLite is what the engine
 authorised, together with the full offer history and compliance events for
 audit.
 
+## The ceiling deadlock (fixed after interview feedback)
+
+An interviewer noted the ladder has a lot of resistance and does not always
+advance when it should — good, because failing safe beats losing money, but
+there was one case where a legitimate consumer got stuck.
+
+The case, seen in a real call: a consumer offered the full $1,000 in three
+installments (the brief's outcome 4 — full payment over a plan) and could
+never reach a tier that granted three payments. The ladder froze at the
+downpayment rung (max 2 payments).
+
+Root cause: the only concession signal was "beat your own previous offer"
+(strict `>`). The first full-balance offer set `best_offer_total` to $1,000,
+and validation forbids offering more than the balance, so no later offer could
+ever beat it. The ladder could not move.
+
+The fix rests on one observation: offering the full balance is never a
+discount request. The only tier where resistance protects money is settlement
+(it allows less than the balance); paid-in-full, downpayment, and payment-plan
+all require the full $1,000. So a full-balance offer is now allowed to advance
+to a tier that fits its structure — this costs the business nothing.
+
+Two safeguards keep it airtight:
+
+- A monotonic accept guard: the engine never accepts less than the consumer
+  has already offered on this call. It passes for the offer that just raised
+  the bar (so legitimate settlements still work), and refuses only a genuine
+  walk-back to a cheaper number. This closes the one hole the full-balance
+  path could otherwise open — reaching the settlement rung and then being
+  undercut by a sub-balance offer.
+- Acceptance is re-checked after each concession, so the offer that triggered
+  the concession is captured at the newly reached tier instead of being
+  countered down to the floor (which previously left money on the table).
+
+The anti-manipulation behaviour the brief cares about is unchanged: repeating
+or lowering a sub-balance offer still never advances the ladder or unlocks a
+discount. Covered by five new tests plus the existing property-based
+invariants (floor never crossed, ladder forward-only, monotonic).
+
 ## Policy interpretation
 
 The 180+ day delinquency in the scenario shapes the policy rather than just
